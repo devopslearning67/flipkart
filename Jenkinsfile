@@ -40,7 +40,7 @@ pipeline {
         }
         stage("Conclusion message") {
             steps {
-                sh echo "pipeline success"
+                echo "pipeline success"
             }
         }
     }
