@@ -17,30 +17,31 @@ pipeline {
                 set -e
                 echo "Fetching the github repo content to jenkins server"
 
-                # Create backup directory
-                ssh -i /var/lib/jenkins/.ssh/Jenkins-Pem.pem ec2-user@172.31.29.100 "sudo mkdir -p /var/www/html/backup"
+                KEY="/var/lib/jenkins/.ssh/Jenkins-Pem.pem"
+                SERVER="ec2-user@172.31.29.100"
+                DEST="/home/ec2-user/flipkart-docker"
 
-                # Backup existing index.html
-                ssh -i /var/lib/jenkins/.ssh/Jenkins-Pem.pem ec2-user@172.31.29.100 \
-                "if [ -f /var/www/html/index.html ]; then \
-                sudo cp /var/www/html/index.html /var/www/html/backup/index.html.$(date +%Y%m%d-%H%M%S); \
-                fi"
+                # Create directory on PROD server
+                ssh -o StrictHostKeyChecking=no -i $KEY $SERVER "sudo mkdir -p $DEST"
 
-                # Copy new file
-                scp -i /var/lib/jenkins/.ssh/Jenkins-Pem.pem $WORKSPACE/index.html \
-                ec2-user@172.31.29.100:/tmp/index.html
+                # Copy files
+                scp -o StrictHostKeyChecking=no -i $KEY $WORKSPACE/index.html $SERVER:$DEST/
+                scp -o StrictHostKeyChecking=no -i $KEY $WORKSPACE/Dockerfile $SERVER:$DEST/
 
-                # Move file to web directory
-                ssh -i /var/lib/jenkins/.ssh/Jenkins-Pem.pem ec2-user@172.31.29.100 \
-                "sudo mv /tmp/index.html /var/www/html/index.html"
-
-                echo "Deployment successful"
+                # Build and Deploy container
+                ssh -o StrictHostKeyChecking=no -i $KEY $SERVER "
+                    cd $DEST &&
+                    sudo docker rm -f flipkart-c1 || true &&
+                    sudo docker build -t flipkart-app:latest . &&
+                    sudo docker run -d --name flipkart-c1 -p 80:80 flipkart-app:latest
+                "
                 '''
             }
         }
+
         stage("Conclusion message") {
             steps {
-                echo "pipeline successful"
+                echo "Pipeline executed successfully"
             }
         }
     }
